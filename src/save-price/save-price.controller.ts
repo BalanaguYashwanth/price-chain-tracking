@@ -1,11 +1,11 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Post } from '@nestjs/common';
 import { SavePriceService } from './save-price.service';
 
 @Controller('save-price')
 export class SavePriceController {
   constructor(private readonly savePriceService: SavePriceService) {}
 
-  @Get('/')
+  @Post('/')
   async priceTracking() {
     return this.savePriceService.savePrice();
   }
