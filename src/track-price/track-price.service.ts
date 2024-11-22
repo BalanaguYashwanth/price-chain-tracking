@@ -2,12 +2,12 @@ import { MailerService } from '@nestjs-modules/mailer';
 import { Inject, Injectable } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cache } from 'cache-manager';
 import { EMAIL_USER } from 'src/save-price/common/config';
 import { Price } from 'src/save-price/entities/price.entity';
 import { Repository } from 'typeorm';
 import { getETHToBTCFromCoinbase } from './common/thirdparty.api';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
 
 @Injectable()
 export class TrackPriceService {
