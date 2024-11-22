@@ -1,0 +1,8 @@
+export enum QUEUE_TYPE {
+  ALERTS = 'ALERTS',
+}
+
+export enum JOB_TYPE {
+  ALERT_PROCESS = 'ALERT_PROCESS',
+  SEND_EMAIL = 'SEND_EMAIL',
+}

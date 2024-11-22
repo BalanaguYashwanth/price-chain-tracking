@@ -1,51 +1,86 @@
-import { MailerService } from '@nestjs-modules/mailer';
-import { Inject, Injectable } from '@nestjs/common';
-import { Cron, CronExpression } from '@nestjs/schedule';
-import { InjectRepository } from '@nestjs/typeorm';
-import { CACHE_MANAGER } from '@nestjs/cache-manager';
-import { Cache } from 'cache-manager';
-import { EMAIL_USER } from 'src/save-price/common/config';
-import { Price } from 'src/save-price/entities/price.entity';
+import { Queue } from 'bull';
+import { InjectQueue } from '@nestjs/bull';
 import { Repository } from 'typeorm';
-import { getETHToBTCFromCoinbase } from './common/thirdparty.api';
+import { Cache } from 'cache-manager';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Inject, Injectable } from '@nestjs/common';
+import { CACHE_MANAGER } from '@nestjs/cache-manager';
+import { Cron, CronExpression } from '@nestjs/schedule';
 
+import { AlertDTO } from './track-price.dto';
+import { ConfigService } from '@nestjs/config';
+import { Alert } from './entities/track.entity';
+import { ENV_CONFIG } from 'src/common/config';
+import { Price } from 'src/save-price/entities/price.entity';
+import { JOB_TYPE, QUEUE_TYPE } from 'src/common/constants';
+import { getCryptoPriceFromCoinbase } from './common/thirdparty.api';
+
+const config = new ConfigService();
 @Injectable()
 export class TrackPriceService {
+  private queueConfig;
   constructor(
     @InjectRepository(Price)
     private readonly priceRepository: Repository<Price>,
-    private readonly mailService: MailerService,
+    @InjectRepository(Alert)
+    private readonly alertRepository: Repository<Alert>,
     @Inject(CACHE_MANAGER) private readonly cacheManager: Cache,
-  ) {}
-
-  async getHourPrices(date: Date) {
-    const specificDate = date;
-
-    const hourlyAverages = await this.priceRepository
-      .createQueryBuilder('price')
-      .select([
-        "to_char(to_timestamp(price.timestamp), 'YYYY-MM-DD HH24') as hour",
-        'AVG(price.price) as avg_price',
-      ])
-      .where(
-        "to_char(to_timestamp(price.timestamp), 'YYYY-MM-DD') = :specificDate",
-        { specificDate },
-      )
-      .groupBy("to_char(to_timestamp(price.timestamp), 'YYYY-MM-DD HH24')")
-      .orderBy(
-        "to_char(to_timestamp(price.timestamp), 'YYYY-MM-DD HH24')",
-        'ASC',
-      )
-      .getRawMany();
-
-    return { hourlyAverages };
+    @InjectQueue(QUEUE_TYPE.ALERTS) private queue: Queue,
+  ) {
+    this.queueConfig = {
+      attempts: 3,
+      backoff: 5000,
+      delay: 1000,
+    };
   }
 
-  //todo - convert from cron to bullmq
+  async getHourlyPrices(date: Date) {
+    try {
+      const specificDate = date;
+      const hourlyAverages = await this.priceRepository
+        .createQueryBuilder('price')
+        .select([
+          'price.coin',
+          "to_char(to_timestamp(price.timestamp), 'YYYY-MM-DD HH24') as hour",
+          'AVG(price.price) as avg_price',
+        ])
+        .where(
+          "to_char(to_timestamp(price.timestamp), 'YYYY-MM-DD') = :specificDate",
+          { specificDate },
+        )
+        .groupBy(
+          "price.coin, to_char(to_timestamp(price.timestamp), 'YYYY-MM-DD HH24')",
+        )
+        .orderBy(
+          "to_char(to_timestamp(price.timestamp), 'YYYY-MM-DD HH24')",
+          'ASC',
+        )
+        .getRawMany();
+
+      return { hourlyAverages };
+    } catch (error) {
+      throw new Error(error?.message);
+    }
+  }
+
+  async createAlert(alertDto: AlertDTO) {
+    try {
+      const { coin, target_price, target_email } = alertDto;
+      await this.alertRepository.insert([
+        { coin, target_price: Number(target_price), target_email },
+      ]);
+      return { status: 'created' };
+    } catch (error) {
+      throw new Error(error?.message || 'Failed to create alert');
+    }
+  }
+
+  // todo - use bullmq or worker threads to loop and set alert
+
+  // todo - convert from cron to bullmq
   @Cron(CronExpression.EVERY_HOUR)
   async checkIncrease() {
     try {
-      const TARGET_EMAIL = 'balanaguyashwanth@gmail.com';
       const currentHourPrices = await this.priceRepository
         .createQueryBuilder('price')
         .where(
@@ -55,7 +90,6 @@ export class TrackPriceService {
         .limit(2)
         .getMany();
 
-      // Fetch top 2 previous hour prices
       const previousHourPrices = await this.priceRepository
         .createQueryBuilder('price')
         .where(
@@ -71,29 +105,11 @@ export class TrackPriceService {
       const polygonDiff = this.getPercentage(currentPolygon, prevPolygon);
 
       if (Number(ethDiff) > 3) {
-        this.mailService
-          .sendMail({
-            to: TARGET_EMAIL,
-            from: EMAIL_USER,
-            subject: 'Alert - Eth increased more than 3%',
-            text: 'Eth increased more than 3%',
-          })
-          .catch((err) => {
-            throw new Error(err?.message);
-          });
+        this.sendPriceIncreaseEmail({ chainType: 'eth' });
       }
 
       if (Number(polygonDiff) > 3) {
-        this.mailService
-          .sendMail({
-            to: TARGET_EMAIL,
-            from: EMAIL_USER,
-            subject: 'Alert - Polygon increased more than 3%',
-            text: 'Polygon increased more than 3%',
-          })
-          .catch((err) => {
-            throw new Error(err?.message);
-          });
+        this.sendPriceIncreaseEmail({ chainType: 'matic' });
       }
 
       return {};
@@ -126,8 +142,9 @@ export class TrackPriceService {
       const platformFeePercentage = 0.5;
 
       if (!ethToBtcRate) {
-        ethToBtcRate = await getETHToBTCFromCoinbase();
+        const priceData = await getCryptoPriceFromCoinbase('ETH');
         await this.createRedisCache(redisKey, ethToBtcRate);
+        ethToBtcRate = priceData.data.rates.BTC;
       }
 
       const fee = (platformFeePercentage / 100) * ethToBtcRate * ethAmount;
@@ -137,5 +154,32 @@ export class TrackPriceService {
     } catch (error) {
       throw new Error(error?.message);
     }
+  }
+
+  @Cron(CronExpression.EVERY_MINUTE)
+  async checkAlerts() {
+    const alerts = await this.alertRepository.find();
+    alerts.forEach(async (alert) => {
+      return await this.queue.add(
+        JOB_TYPE.ALERT_PROCESS,
+        { ...alert },
+        this.queueConfig,
+      );
+    });
+  }
+
+  async sendPriceIncreaseEmail({ chainType }: { chainType: string }) {
+    const TARGET_EMAIL = config.get(ENV_CONFIG.HYPERHIRE_EMAIL);
+    const EMAIL_USER = config.get(ENV_CONFIG.EMAIL_USER);
+    await this.queue.add(
+      JOB_TYPE.SEND_EMAIL,
+      {
+        to: TARGET_EMAIL,
+        from: EMAIL_USER,
+        subject: `Alert - ${chainType} increased more than 3%`,
+        text: `${chainType} increased more than 3%`,
+      },
+      this.queueConfig,
+    );
   }
 }

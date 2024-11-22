@@ -10,6 +10,7 @@ import { SavePriceController } from './save-price/save-price.controller';
 import { SavePriceModule } from './save-price/save-price.module';
 import { QUEUE_TYPE } from './save-price/common/constants';
 import { TrackPriceModule } from './track-price/track-price.module';
+import { REDIS_CONFIG } from './common/config';
 
 @Module({
   imports: [
@@ -27,10 +28,7 @@ import { TrackPriceModule } from './track-price/track-price.module';
       }),
     }),
     BullModule.forRoot({
-      redis: {
-        host: 'localhost',
-        port: 6379,
-      },
+      ...REDIS_CONFIG,
       prefix: 'bullmq',
     }),
     BullModule.registerQueue({

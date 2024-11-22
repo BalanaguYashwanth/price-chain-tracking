@@ -8,7 +8,7 @@ import { CronExpression } from '@nestjs/schedule';
 export class SavePriceService {
   constructor(@InjectQueue(QUEUE_TYPE.PRICE_FETCH) private queue: Queue) {}
 
-  async priceTracking() {
+  async savePrice() {
     const config = {
       priority: 1,
       repeat: { cron: CronExpression.EVERY_5_MINUTES },

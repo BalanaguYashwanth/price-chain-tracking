@@ -1,13 +1,15 @@
 import Moralis from 'moralis';
-import { ETHERUM_ADDRESS, MORALIS_API_KEY, POLYGON_ADDRESS } from './config';
+import { ConfigService } from '@nestjs/config';
+import { ENV_CONFIG } from 'src/common/config';
 
 let isInitialized = false;
 
+const config = new ConfigService();
 export const getTokenPrice = async () => {
   try {
     // Initialize Moralis only once
     if (!isInitialized) {
-      await Moralis.start({ apiKey: MORALIS_API_KEY });
+      await Moralis.start({ apiKey: config.get(ENV_CONFIG.MORALIS_API_KEY) });
       isInitialized = true;
     }
 
@@ -15,14 +17,14 @@ export const getTokenPrice = async () => {
     const ethData = await Moralis.EvmApi.token.getTokenPrice({
       chain: '0x1',
       include: 'percent_change',
-      address: ETHERUM_ADDRESS,
+      address: config.get(ENV_CONFIG.ETHERUM_ADDRESS),
     });
 
     // Polygon price fetch (MATIC)
     const polygonData = await Moralis.EvmApi.token.getTokenPrice({
       chain: '0x89',
       include: 'percent_change',
-      address: POLYGON_ADDRESS,
+      address: config.get(ENV_CONFIG.POLYGON_ADDRESS),
     });
 
     const eth = ethData?.raw?.usdPriceFormatted

@@ -7,6 +7,6 @@ export class SavePriceController {
 
   @Get('/')
   async priceTracking() {
-    return this.savePriceService.priceTracking();
+    return this.savePriceService.savePrice();
   }
 }

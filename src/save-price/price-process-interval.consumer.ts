@@ -1,7 +1,6 @@
-import { Job } from 'bull';
-import { Process, Processor } from '@nestjs/bull';
-import { JOB_TYPE, QUEUE_TYPE, SUPPORTED_CHAINS } from './common/constants';
 import { Repository } from 'typeorm';
+import { Process, Processor } from '@nestjs/bull';
+import { JOB_TYPE, QUEUE_TYPE } from './common/constants';
 import { Price } from './entities/price.entity';
 import { InjectRepository } from '@nestjs/typeorm';
 import { getTokenPrice } from './common/thirdparty.api';
@@ -18,8 +17,7 @@ export class PriceProcessConsumer {
     try {
       const unixTimestamp = Math.floor(Date.now() / 1000);
 
-      // const prices = await getTokenPrice(SUPPORTED_CHAINS);
-      const prices = { eth: 3323.35, polygon: 3325.05 };
+      const prices = await getTokenPrice();
       const priceData = [
         {
           coin: 'ethereum',

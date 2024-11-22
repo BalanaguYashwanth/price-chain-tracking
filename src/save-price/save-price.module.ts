@@ -6,15 +6,13 @@ import { SavePriceService } from './save-price.service';
 import { PriceProcessConsumer } from './price-process-interval.consumer';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Price } from './entities/price.entity';
+import { REDIS_CONFIG } from 'src/common/config';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Price]),
     BullModule.forRoot({
-      redis: {
-        host: 'localhost',
-        port: 6379,
-      },
+      ...REDIS_CONFIG,
       prefix: 'bullmq',
     }),
     BullModule.registerQueue({

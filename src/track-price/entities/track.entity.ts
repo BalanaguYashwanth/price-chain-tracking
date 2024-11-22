@@ -1,8 +1,8 @@
-import { Min } from 'class-validator';
+import { IsEmail, Min } from 'class-validator';
 import { Column, Entity, PrimaryGeneratedColumn } from 'typeorm';
 
-@Entity({ name: 'price' })
-export class Price {
+@Entity({ name: 'alert' })
+export class Alert {
   @PrimaryGeneratedColumn()
   id: number;
 
@@ -13,8 +13,9 @@ export class Price {
   // Change the column type to float or numeric
   @Column('float')
   @Min(0)
-  price: number;
+  target_price: number;
 
-  @Column('bigint')
-  timestamp: number;
+  @Column()
+  @IsEmail()
+  target_email: string;
 }
