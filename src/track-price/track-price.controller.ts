@@ -8,6 +8,8 @@ import {
   Post,
 } from '@nestjs/common';
 import { TrackPriceService } from './track-price.service';
+import { AlertDTO, ConvertionDto } from './track-price.dto';
+import { ApiBody } from '@nestjs/swagger';
 
 @Controller('track-price')
 export class TrackPriceController {
@@ -29,7 +31,10 @@ export class TrackPriceController {
   }
 
   @Post('/alert')
-  async createAlert(@Body() alertDto): Promise<any> {
+  @ApiBody({
+    type: AlertDTO, // Use the DTO class to define input structure
+  })
+  async createAlert(@Body() alertDto: AlertDTO): Promise<any> {
     try {
       return await this.trackPriceService.createAlert(alertDto);
     } catch (error) {
@@ -44,7 +49,7 @@ export class TrackPriceController {
   }
 
   @Post('/convertion')
-  getConvertion(@Body() convertionDto): any {
+  getConvertion(@Body() convertionDto: ConvertionDto): any {
     try {
       return this.trackPriceService.getConvertionRate(convertionDto);
     } catch (error) {
