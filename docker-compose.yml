@@ -7,6 +7,15 @@ services:
       - "3000:3000"
     environment:
       - DB_URL=${DB_URL}
+      - MORALIS_API_KEY=${MORALIS_API_KEY}
+      - EMAIL_HOST=${EMAIL_HOST}
+      - EMAIL_USER=${EMAIL_USER}
+      - EMAIL_PASS=${EMAIL_PASS}
+      - EMAIL_SERVICE=${EMAIL_SERVICE}
+      - HYPERHIRE_EMAIL=${HYPERHIRE_EMAIL}
+      - ETHERUM_ADDRESS=${ETHERUM_ADDRESS}
+      - POLYGON_ADDRESS=${POLYGON_ADDRESS}
+      - COINBASE_API=${COINBASE_API}
     depends_on:
       - redis
 
