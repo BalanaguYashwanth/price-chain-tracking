@@ -75,9 +75,6 @@ export class TrackPriceService {
     }
   }
 
-  // todo - use bullmq or worker threads to loop and set alert
-
-  // todo - convert from cron to bullmq
   @Cron(CronExpression.EVERY_HOUR)
   async checkIncrease() {
     try {
